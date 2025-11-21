@@ -1,0 +1,112 @@
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: doc_upload_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=document_store
+    networks:
+      - doc_upload_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Application Layer Instance 1
+  app1:
+    build:
+      context: ./app_layer
+      dockerfile: Dockerfile
+    container_name: doc_upload_app1
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DB_NAME=document_store
+      - MONGODB_COLLECTION=documents
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - doc_upload_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Application Layer Instance 2
+  app2:
+    build:
+      context: ./app_layer
+      dockerfile: Dockerfile
+    container_name: doc_upload_app2
+    environment:
+      - MONGODB_URL=mongodb://mongodb:27017
+      - MONGODB_DB_NAME=document_store
+      - MONGODB_COLLECTION=documents
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - doc_upload_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # Nginx Load Balancer
+  nginx:
+    image: nginx:alpine
+    container_name: doc_upload_nginx
+    ports:
+      - "8001:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app1
+      - app2
+    networks:
+      - doc_upload_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # API Layer (Gateway)
+  api_gateway:
+    build:
+      context: ./api_layer
+      dockerfile: Dockerfile
+    container_name: doc_upload_api
+    ports:
+      - "8000:8080"
+    environment:
+      - APP_LAYER_URL=http://nginx:80
+    depends_on:
+      - nginx
+    networks:
+      - doc_upload_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  doc_upload_network:
+    driver: bridge
