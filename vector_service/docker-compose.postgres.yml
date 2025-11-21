@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  postgres:
+    container_name: vector-postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: vectoruser
+      POSTGRES_PASSWORD: vectorpass
+      POSTGRES_DB: vector_metadata
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vectoruser -d vector_metadata"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vector_network
+
+volumes:
+  postgres_data:
+
+networks:
+  vector_network:
+    external: true
+    name: vector_network

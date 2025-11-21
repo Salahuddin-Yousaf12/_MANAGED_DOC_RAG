@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  # pgAdmin for PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - rag_shared_network
+      - vector_network
+    restart: unless-stopped
+
+  # Attu for Milvus
+  attu:
+    image: zilliz/attu:v2.3.2
+    container_name: milvus-attu
+    ports:
+      - "3000:3000"
+    environment:
+      - MILVUS_URL=milvus-standalone:19530
+    networks:
+      - vector_network
+    restart: unless-stopped
+
+volumes:
+  pgadmin_data:
+
+networks:
+  # Connect to vector_service network (for Milvus and PostgreSQL)
+  vector_network:
+    external: true
+    name: vector_service_vector_network
+  # Connect to shared network (optional, for doc_upload MongoDB access)
+  rag_shared_network:
+    external: true
+    name: rag_shared_network
