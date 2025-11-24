@@ -2,10 +2,14 @@
 Document service - Business logic layer
 """
 import os
+import logging
 from typing import Tuple
 from models.document import Document, DocumentResponse
 from repositories.document_repository import document_repository
 from services.extractors.extractor_factory import ExtractorFactory
+from redis_queue.publisher import document_publisher
+
+logger = logging.getLogger(__name__)
 
 
 class DocumentService:
@@ -65,6 +69,14 @@ class DocumentService:
 
             # Store in MongoDB
             doc_id = await document_repository.create_document(document)
+
+            # Publish to Redis queue for vector processing
+            try:
+                document_publisher.publish_document(doc_id, filename)
+                logger.info(f"Document {doc_id} queued for vector processing")
+            except Exception as e:
+                # Log but don't fail - vectorization can be triggered manually
+                logger.warning(f"Failed to queue document for processing: {e}")
 
             # Return response
             return DocumentResponse(

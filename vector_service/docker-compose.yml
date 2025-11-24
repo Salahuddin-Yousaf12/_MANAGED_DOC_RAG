@@ -21,6 +21,9 @@ services:
       - CHUNK_OVERLAP=50
       # Connect to doc_upload API gateway on the shared network
       - DOC_UPLOAD_SERVICE_URL=http://doc_upload_api:8080
+      # Redis message queue (on rag_shared_network)
+      - REDIS_HOST=rag-redis
+      - REDIS_PORT=6379
     depends_on:
       milvus-standalone:
         condition: service_healthy
@@ -80,7 +83,7 @@ services:
   # Milvus vector database (vertically scalable)
   milvus-standalone:
     container_name: milvus-standalone
-    image: milvusdb/milvus:v2.3.3
+    image: milvusdb/milvus:v2.5.16
     command: ["milvus", "run", "standalone"]
     security_opt:
       - seccomp:unconfined

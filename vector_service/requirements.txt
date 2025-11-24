@@ -5,10 +5,10 @@ gunicorn==21.2.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
 
-# Milvus
-pymilvus==2.3.4
-marshmallow>=3.18.0,<3.21.0
-environs>=9.5.0
+# Milvus - pymilvus 2.5 required for SPARSE_FLOAT_VECTOR support
+marshmallow==3.20.2
+environs==9.5.0
+pymilvus==2.5.0
 
 # PostgreSQL
 asyncpg==0.29.0
@@ -20,6 +20,9 @@ torch==2.2.0
 
 # HTTP client
 httpx==0.26.0
+
+# Redis for message queue
+redis==5.0.1
 
 # Utilities
 python-multipart==0.0.6
