@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.services.vector_service import vector_service
 from app.repositories.milvus_repository import milvus_repository
 from app.repositories.postgres_repository import postgres_repository
+from app.redis_queue.subscriber import document_subscriber
 from app.models.chunk import (
     ProcessRequest,
     ProcessResponse,
@@ -18,6 +19,7 @@ from app.models.chunk import (
 )
 from typing import List, Dict, Any
 import logging
+import asyncio
 
 # Configure logging
 logging.basicConfig(
@@ -27,11 +29,24 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+async def process_document_callback(document_id: str, filename: str) -> bool:
+    """Callback for processing documents from Redis queue."""
+    try:
+        logger.info(f"Processing document from queue: {document_id} ({filename})")
+        result = await vector_service.process_document_by_id(document_id)
+        logger.info(f"Document {document_id} processed: {result.chunks_created} chunks created")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to process document {document_id}: {e}")
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifecycle - startup and shutdown"""
     # Startup
     logger.info("Starting Vector Service...")
+    worker_task = None
 
     try:
         # Connect to Milvus
@@ -41,6 +56,12 @@ async def lifespan(app: FastAPI):
         # Connect to PostgreSQL
         logger.info("Connecting to PostgreSQL...")
         await postgres_repository.connect()
+
+        # Start Redis queue worker
+        logger.info("Starting Redis queue worker...")
+        worker_task = asyncio.create_task(
+            document_subscriber.start_worker(process_document_callback)
+        )
 
         logger.info("Vector Service started successfully")
         yield
@@ -52,6 +73,17 @@ async def lifespan(app: FastAPI):
     finally:
         # Shutdown
         logger.info("Shutting down Vector Service...")
+
+        # Stop Redis worker
+        if worker_task:
+            document_subscriber.stop()
+            worker_task.cancel()
+            try:
+                await worker_task
+            except asyncio.CancelledError:
+                pass
+        document_subscriber.close()
+
         await milvus_repository.disconnect()
         await postgres_repository.disconnect()
         logger.info("Vector Service shutdown complete")

@@ -28,6 +28,9 @@ services:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB_NAME=document_store
       - MONGODB_COLLECTION=documents
+      # Redis message queue (on rag_shared_network)
+      - REDIS_HOST=rag-redis
+      - REDIS_PORT=6379
     depends_on:
       mongodb:
         condition: service_healthy
@@ -50,6 +53,9 @@ services:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB_NAME=document_store
       - MONGODB_COLLECTION=documents
+      # Redis message queue (on rag_shared_network)
+      - REDIS_HOST=rag-redis
+      - REDIS_PORT=6379
     depends_on:
       mongodb:
         condition: service_healthy
@@ -109,5 +115,5 @@ volumes:
 
 networks:
   doc_upload_network:
-    driver: bridge
+    external: true
     name: rag_shared_network
